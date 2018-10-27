@@ -48,7 +48,7 @@ def captureCourseLinks(content):
     return r.findall(content)
 
 
-def captureCouseInfo(courseUrl):
+def captureCourseInfo(courseUrl):
     validRegex = parseRegexFromFile()
     content = getUrlContent(courseUrl)
     courseName = captureCourseName(content)
@@ -65,7 +65,7 @@ if __name__ == '__main__':
 
     courses = []
     for link in courseLinks:
-        courses.append(captureCouseInfo(link))
+        courses.append(captureCourseInfo(link))
 
     for c in courses:
         print(c.get('name'))
