@@ -1,32 +1,71 @@
+# -*- coding: utf-8 -*-
+
 import io
 import re
 import urllib3
 
+from res_reader import ResReader
+
 
 http = urllib3.PoolManager()
+findValidRegex = 're:\s{1}([^\s].*)'
+findNameRegex = 'np:\s{1}([^\s].*)'
+findLinkRegex = 'a data-item.*?href=\"(.*?)\"'
+reader = ResReader()
 
 
 def getUrlContent(url):
     return http.request('GET', url).data.decode('UTF-8')
 
 
-# La regex de este metodo pilla todas las lineas del estilo 're: este texto'
-def parseRegexFromFile(path):
-    with io.open(path, 'r', encoding='utf8') as f:
-        content = f.read()
-        r = re.compile(r're:\s{1}([^\s].*)', re.IGNORECASE)
-        return r.findall(content)
+def parseRegexFromFile():
+    r = re.compile(findValidRegex, re.IGNORECASE)
+    return r.search(reader.get_resources()).group(1)
 
 
 def applyRegex(regex, content):
     cr = re.compile(regex, re.IGNORECASE)
     founded = cr.findall(content)
-    return [t[2] for t in founded]
+    values = {}
+    for t in founded:
+        values.update({t[1]: t[5]})
+    return values
+
+
+def captureCourseName(urlContent):
+    courseNameRegexMatch = re.compile(findNameRegex, re.IGNORECASE).search(reader.get_resources())
+    if courseNameRegexMatch:
+        courseNameRegex = courseNameRegexMatch.group(1)
+    r = re.compile(courseNameRegex, re.IGNORECASE)
+    match = r.search(urlContent)
+    if match:
+        return match.group(1)
+    return '{{Nombre desconocido}}'
+
+
+def captureCourseLinks(content):
+    r = re.compile(findLinkRegex, re.IGNORECASE)
+    return r.findall(content)
+
+
+def captureCouseInfo(courseUrl):
+    validRegex = parseRegexFromFile()
+    content = getUrlContent(courseUrl)
+    courseName = captureCourseName(content)
+    results = applyRegex(validRegex, content)
+
+    results.update({'name': courseName})
+
+    return results
 
 
 if __name__ == '__main__':
-    validRegex = parseRegexFromFile('res.txt')
-    content = getUrlContent('https://wetaca.com/175-crema-de-setas.html')
-    results = [applyRegex(r, content) for r in validRegex]
+    wetacaMenuContent = getUrlContent('https://wetaca.com/27-nuestros-platos')
+    courseLinks = captureCourseLinks(wetacaMenuContent)
 
-    print(results)
+    courses = []
+    for link in courseLinks:
+        courses.append(captureCouseInfo(link))
+
+    for c in courses:
+        print(c.get('name'))
