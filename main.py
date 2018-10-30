@@ -68,4 +68,5 @@ if __name__ == '__main__':
         courses.append(captureCourseInfo(link))
 
     for c in courses:
-        print(c.get('name'))
+        for k, v in c.items():
+            print(k + ": " + v)
