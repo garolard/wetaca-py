@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-import io
 import re
 import urllib3
+import csv
 
 from res_reader import ResReader
 
@@ -54,7 +54,7 @@ def captureCourseInfo(courseUrl):
     courseName = captureCourseName(content)
     results = applyRegex(validRegex, content)
 
-    results.update({'name': courseName})
+    results.update({'Nombre': courseName})
 
     return results
 
@@ -67,6 +67,9 @@ if __name__ == '__main__':
     for link in courseLinks:
         courses.append(captureCourseInfo(link))
 
-    for c in courses:
-        for k, v in c.items():
-            print(k + ": " + v)
+    with open('template.txt', 'w', encoding='utf8') as temp:
+        fieldnames = courses[0].keys()
+        writer = csv.DictWriter(temp, fieldnames=fieldnames)
+        writer.writeheader()
+        for c in courses:
+            writer.writerow(c)
