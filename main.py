@@ -54,9 +54,9 @@ def captureCourseInfo(courseUrl):
     courseName = captureCourseName(content)
     results = applyRegex(validRegex, content)
 
-    results.update({'Nombre': courseName})
-
-    return results
+    r = {'Nombre': courseName}
+    r.update(results)
+    return r
 
 
 if __name__ == '__main__':
