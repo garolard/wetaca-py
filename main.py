@@ -4,72 +4,50 @@ import re
 import urllib3
 import csv
 
-from res_reader import ResReader
+from bs4 import BeautifulSoup
 
 
-http = urllib3.PoolManager()
-findValidRegex = 're:\s{1}([^\s].*)'
-findNameRegex = 'np:\s{1}([^\s].*)'
-findLinkRegex = 'a data-item.*?href=\"(.*?)\"'
-reader = ResReader()
+userAgent = {
+    'user-agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0'}
+http = urllib3.PoolManager(headers=userAgent)
 
 
-def getUrlContent(url):
-    return http.request('GET', url).data.decode('UTF-8')
+def captureCourseLinksInSoup(soup):
+    links = []
+    allLinks = [tag['href']
+                for tag in soup.find_all(class_=re.compile('lc_google_click'))]
+    for l in allLinks:
+        if l not in links:
+            links.append(l)
+    return links
 
 
-def parseRegexFromFile():
-    r = re.compile(findValidRegex, re.IGNORECASE)
-    return r.search(reader.get_resources()).group(1)
-
-
-def applyRegex(regex, content):
-    cr = re.compile(regex, re.IGNORECASE)
-    founded = cr.findall(content)
-    values = {}
-    for t in founded:
-        values.update({t[1]: t[5]})
-    return values
-
-
-def captureCourseName(urlContent):
-    courseNameRegexMatch = re.compile(findNameRegex, re.IGNORECASE).search(reader.get_resources())
-    if courseNameRegexMatch:
-        courseNameRegex = courseNameRegexMatch.group(1)
-    r = re.compile(courseNameRegex, re.IGNORECASE)
-    match = r.search(urlContent)
-    if match:
-        return match.group(1)
-    return '{{Nombre desconocido}}'
-
-
-def captureCourseLinks(content):
-    r = re.compile(findLinkRegex, re.IGNORECASE)
-    return r.findall(content)
-
-
-def captureCourseInfo(courseUrl):
-    validRegex = parseRegexFromFile()
-    content = getUrlContent(courseUrl)
-    courseName = captureCourseName(content)
-    results = applyRegex(validRegex, content)
-
-    r = {'Nombre': courseName}
-    r.update(results)
-    return r
+def parseCourse(courseLink):
+    webContent = http.request('GET', courseLink).data.decode('UTF-8', 'ignore')
+    soup = BeautifulSoup(webContent)
+    courseLabels = [tag.get_text() for tag in soup.find_all(
+        'span', attrs={'class': 'LC_name'})]
+    courseValues = [tag.get_text() for tag in soup.find_all(
+        'span', attrs={'class': 'LC_data'})]
+    course = list(zip(courseLabels, courseValues))
+    course.insert(0, ('Plato', soup.title.string.split('-')[0].strip()))
+    return course
 
 
 if __name__ == '__main__':
-    wetacaMenuContent = getUrlContent('https://wetaca.com/27-nuestros-platos')
-    courseLinks = captureCourseLinks(wetacaMenuContent)
-
+    wetacaMenuContent = http.request(
+        'GET', 'https://wetaca.com/27-nuestros-platos').data.decode('UTF-8', 'ignore')
+    soup = BeautifulSoup(wetacaMenuContent, 'html.parser')
+    courseLinks = captureCourseLinksInSoup(soup)
     courses = []
     for link in courseLinks:
-        courses.append(captureCourseInfo(link))
+        courses.append(parseCourse(link))
+    sortedCourses = sorted(courses, key=lambda tup: tup[0])
 
-    with open('template.txt', 'w', encoding='utf8') as temp:
-        fieldnames = courses[0].keys()
+    with open('wetaca-weekly.csv', 'w', encoding='utf8') as temp:
+        fieldnames = dict(courses[0]).keys()
         writer = csv.DictWriter(temp, fieldnames=fieldnames)
         writer.writeheader()
         for c in courses:
-            writer.writerow(c)
+            d = dict(c)
+            writer.writerow(d)
