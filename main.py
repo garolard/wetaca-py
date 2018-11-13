@@ -26,7 +26,7 @@ def captureCourseLinksInSoup(soup):
 
 def parseCourse(courseLink):
     webContent = http.request('GET', courseLink).data.decode('UTF-8', 'ignore')
-    soup = BeautifulSoup(webContent)
+    soup = BeautifulSoup(webContent, 'html.parser')
 
     courseLabels = [tag.get_text() for tag in soup.find_all(
         'span', attrs={'class': 'LC_name'})]
@@ -51,8 +51,6 @@ if __name__ == '__main__':
     courses = []
     for link in courseLinks:
         courses.append(parseCourse(link))
-
-    sortedCourses = sorted(courses, key=lambda tup: tup[0])
 
     with open('wetaca-weekly.csv', 'w', encoding='utf8') as temp:
         fieldnames = dict(courses[0]).keys()
