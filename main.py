@@ -38,10 +38,11 @@ def parseCourse(courseLink):
     courseValues = [tag.get_text() for tag in soup.find_all(
         'span', attrs={'class': 'LC_data'})]
 
-    course = list(zip(courseLabels, courseValues))
+    # Ahora mismo no caigo para que esto no sea tan cutre
+    courseLabels.insert(0, 'Plato')
+    courseValues.insert(0, soup.title.string.split('-')[0].strip())
 
-    course.insert(0, ('Plato', soup.title.string.split('-')[0].strip()))
-    return course
+    return zip(courseLabels, courseValues)
 
 
 if __name__ == '__main__':
@@ -70,11 +71,6 @@ if __name__ == '__main__':
         writer = csv.DictWriter(temp, fieldnames=fieldnames)
         writer.writeheader()
 
-        # Si los de wetaca son retrasados y no ponen la info de algun
-        # plato pues no lo escribo y ya esta, si no tiene info no puede estar bueno
         for c in courses:
             d = dict(c)
-            try:
-                writer.writerow(d)
-            except ValueError as err:
-                log.error('Error encontrado con el plato ' + d['Plato'] + '\n' + str(err))
+            writer.writerow(d)
