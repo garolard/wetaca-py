@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 
+import os
 import re
 import urllib3
 import csv
 import logging
+import datetime
 
 from bs4 import BeautifulSoup
+from tqdm import tqdm
 
 # Desactivo esos avisos molestos de que no es una peticion segura, YA SE QUE NO ES SEGURA!!
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -16,6 +19,16 @@ userAgent = {
     'user-agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0'}
 http = urllib3.PoolManager(headers=userAgent)
 
+baseFolder = os.path.dirname(__name__)
+outputFolderPath = 'out'
+fileName = 'wetaca-weekly-' + datetime.date.today().strftime('%d%m%Y') + '.csv'
+
+def createOutputFolder():
+    try:
+        if not os.path.exists(os.path.join(baseFolder, outputFolderPath)):
+            os.makedirs(os.path.join(baseFolder, outputFolderPath))
+    except OSError as err:
+        log.error(err)
 
 def captureCourseLinksInSoup(soup):
     links = []
@@ -55,10 +68,13 @@ if __name__ == '__main__':
     # seguro que puede simplificarse para que no quede tan
     # chapuza pero usando list comprehension el http peta
     courses = []
-    for link in courseLinks:
+    print('Parseando enlaces')
+    for link in tqdm(courseLinks):
         courses.append(parseCourse(link))
 
-    with open('wetaca-weekly.csv', 'w', encoding='utf8') as temp:
+    createOutputFolder()
+
+    with open(os.path.join(baseFolder, outputFolderPath, fileName), 'w', encoding='utf8') as temp:
         referenceCourse = dict(courses[0])
 
         # Si los de wetaca son retrasados y no ponen la info del primer plato
@@ -71,6 +87,9 @@ if __name__ == '__main__':
         writer = csv.DictWriter(temp, fieldnames=fieldnames)
         writer.writeheader()
 
-        for c in courses:
+        print('Escribiendo platos')
+        for c in tqdm(courses):
             d = dict(c)
             writer.writerow(d)
+
+        print('Terminado')
