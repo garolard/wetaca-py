@@ -21,6 +21,7 @@ http = urllib3.PoolManager(headers=userAgent)
 
 baseFolder = os.path.dirname(__name__)
 outputFolderPath = 'out'
+gdriveFolderPath = 'D:\Gabriel\Wetacas'
 fileName = 'wetaca-weekly-' + datetime.date.today().strftime('%d%m%Y') + '.csv'
 
 def createOutputFolder():
@@ -74,16 +75,17 @@ if __name__ == '__main__':
 
     createOutputFolder()
 
+
+    referenceCourse = dict(courses[0])
+
+    # Si los de wetaca son retrasados y no ponen la info del primer plato
+    # intento coger los del segundo
+    if len(referenceCourse.keys()) == 1:
+        fieldnames = dict(courses[1]).keys()
+    else:
+        fieldnames = referenceCourse.keys()
+
     with open(os.path.join(baseFolder, outputFolderPath, fileName), 'w', encoding='utf8') as temp:
-        referenceCourse = dict(courses[0])
-
-        # Si los de wetaca son retrasados y no ponen la info del primer plato
-        # intento coger los del segundo
-        if len(referenceCourse.keys()) == 1:
-            fieldnames = dict(courses[1]).keys()
-        else:
-            fieldnames = referenceCourse.keys()
-
         writer = csv.DictWriter(temp, fieldnames=fieldnames)
         writer.writeheader()
 
@@ -92,4 +94,13 @@ if __name__ == '__main__':
             d = dict(c)
             writer.writerow(d)
 
-        print('Terminado')
+    with open(os.path.join(gdriveFolderPath, fileName), 'w', encoding='utf8') as gDriveTemp:
+        writer = csv.DictWriter(gDriveTemp, fieldnames=fieldnames)
+        writer.writeheader()
+
+        print('Escribiendo platos en GDrive')
+        for c in tqdm(courses):
+            d = dict(c)
+            writer.writerow(d)
+    
+    print('Terminado')
