@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+from shutil import copyfile
 import re
 import urllib3
 import csv
@@ -85,7 +86,9 @@ if __name__ == '__main__':
     else:
         fieldnames = referenceCourse.keys()
 
-    with open(os.path.join(baseFolder, outputFolderPath, fileName), 'w', encoding='utf8') as temp:
+    fileFullPath = os.path.join(baseFolder, outputFolderPath, fileName)
+
+    with open(fileFullPath, 'w', encoding='utf8') as temp:
         writer = csv.DictWriter(temp, fieldnames=fieldnames)
         writer.writeheader()
 
@@ -94,13 +97,6 @@ if __name__ == '__main__':
             d = dict(c)
             writer.writerow(d)
 
-    with open(os.path.join(gdriveFolderPath, fileName), 'w', encoding='utf8') as gDriveTemp:
-        writer = csv.DictWriter(gDriveTemp, fieldnames=fieldnames)
-        writer.writeheader()
-
-        print('Escribiendo platos en GDrive')
-        for c in tqdm(courses):
-            d = dict(c)
-            writer.writerow(d)
+    copyfile(fileFullPath, os.path.join(gdriveFolderPath, fileName))
     
     print('Terminado')
