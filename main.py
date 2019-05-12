@@ -1,51 +1,44 @@
 # -*- coding: utf-8 -*-
 
+import sys
 import os
 from shutil import copyfile
 import re
-import urllib3
 import csv
 import logging
 import datetime
 
+import aiohttp
+import asyncio
+
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
-# Desactivo esos avisos molestos de que no es una peticion segura, YA SE QUE NO ES SEGURA!!
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+loop = asyncio.get_event_loop()
+client = aiohttp.ClientSession(loop=loop)
 
 log = logging.getLogger(__name__)
-
-userAgent = {
-    'user-agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0'}
-http = urllib3.PoolManager(headers=userAgent)
 
 baseFolder = os.path.dirname(__name__)
 outputFolderPath = 'out'
 gdriveFolderPath = 'D:\Gabriel\Wetacas'
 fileName = 'wetaca-weekly-' + datetime.date.today().strftime('%d%m%Y') + '.csv'
 
-def createOutputFolder():
+def ensure_output_folder_exists():
     try:
         if not os.path.exists(os.path.join(baseFolder, outputFolderPath)):
             os.makedirs(os.path.join(baseFolder, outputFolderPath))
     except OSError as err:
         log.error(err)
 
-def captureCourseLinksInSoup(soup):
-    links = []
+def capture_course_links(soup):
     allLinks = [tag['href']
                 for tag in soup.find_all(class_=re.compile('lc_google_click'))]
-    # Eliminado duplicados. Podria usar un set pero me joderia el orden
-    # de la lista
-    for l in allLinks:
-        if l not in links:
-            links.append(l)
-    return links
+    return set(allLinks)
 
 
-def parseCourse(courseLink):
-    webContent = http.request('GET', courseLink).data.decode('UTF-8', 'ignore')
+async def parse_course_info(client, courseLink):
+    webContent = await get_url(client, courseLink)
     soup = BeautifulSoup(webContent, 'html.parser')
 
     courseLabels = [tag.get_text() for tag in soup.find_all(
@@ -59,23 +52,30 @@ def parseCourse(courseLink):
 
     return zip(courseLabels, courseValues)
 
+async def get_url(client, url):
+    async with client.get(url) as resp:
+        assert resp.status == 200
+        return await resp.text()
 
-if __name__ == '__main__':
-    wetacaMenuContent = http.request(
-        'GET', 'https://wetaca.com/27-nuestros-platos').data.decode('UTF-8', 'ignore')
+async def main(client, loop):
+    wetacaMenuContent = await get_url(client, 'https://wetaca.com/27-nuestros-platos')
     soup = BeautifulSoup(wetacaMenuContent, 'html.parser')
 
-    courseLinks = captureCourseLinksInSoup(soup)
+    courseLinks = capture_course_links(soup)
 
     # seguro que puede simplificarse para que no quede tan
     # chapuza pero usando list comprehension el http peta
-    courses = []
+    coursesTasks = []
+
+    log.info('Parseando enlaces')
     print('Parseando enlaces')
-    for link in tqdm(courseLinks):
-        courses.append(parseCourse(link))
 
-    createOutputFolder()
+    for link in courseLinks:
+        coursesTasks.append(parse_course_info(client, link))
 
+    courses = await asyncio.gather(*coursesTasks)
+
+    ensure_output_folder_exists()
 
     referenceCourse = dict(courses[0])
 
@@ -92,11 +92,17 @@ if __name__ == '__main__':
         writer = csv.DictWriter(temp, fieldnames=fieldnames)
         writer.writeheader()
 
+        log.info('Escribiendo platos')
         print('Escribiendo platos')
         for c in tqdm(courses):
             d = dict(c)
             writer.writerow(d)
 
-    copyfile(fileFullPath, os.path.join(gdriveFolderPath, fileName))
-    
+    #copyfile(fileFullPath, os.path.join(gdriveFolderPath, fileName))
+    await client.close()
+
     print('Terminado')
+
+loop.run_until_complete(main(client, loop))
+loop.close()
+sys.exit(0)
