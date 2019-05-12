@@ -14,22 +14,19 @@ import asyncio
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
+log = logging.getLogger(__name__)
+
 loop = asyncio.get_event_loop()
 client = aiohttp.ClientSession(loop=loop)
 
-log = logging.getLogger(__name__)
-
 baseFolder = os.path.dirname(__name__)
 outputFolderPath = 'out'
-gdriveFolderPath = 'D:\Gabriel\Wetacas'
+#gdriveFolderPath = 'D:\Gabriel\Wetacas'
 fileName = 'wetaca-weekly-' + datetime.date.today().strftime('%d%m%Y') + '.csv'
 
 def ensure_output_folder_exists():
-    try:
-        if not os.path.exists(os.path.join(baseFolder, outputFolderPath)):
-            os.makedirs(os.path.join(baseFolder, outputFolderPath))
-    except OSError as err:
-        log.error(err)
+    if not os.path.exists(os.path.join(baseFolder, outputFolderPath)):
+        os.makedirs(os.path.join(baseFolder, outputFolderPath))
 
 def capture_course_links(soup):
     allLinks = [tag['href']
